@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { fraudnetApi } from '@/services/fraudnet-api'
 import { Activity, AlertTriangle, ArrowUpRight, Ban, Bell, ChevronRight, CircleDollarSign, Cpu, FileSearch, Fingerprint, GitBranch, Globe2, LayoutDashboard, Menu, Network, Search, ShieldCheck, SlidersHorizontal, Sparkles, Users, X } from 'lucide-react'
 
 type View = 'Overview' | 'Transactions' | 'Fraud Rings' | 'Investigation' | 'Model Performance' | 'Simulation'
@@ -27,6 +28,11 @@ export default function Page() {
   const [selected, setSelected] = useState(transactions[0])
   const [simulated, setSimulated] = useState(false)
   const [query, setQuery] = useState('')
+  const [apiSummary, setApiSummary] = useState<{ total_transactions: number; fraud_detected: number; fraud_rings: number; suspicious_amount: number } | null>(null)
+  const [apiError, setApiError] = useState<string | null>(null)
+  useEffect(() => {
+    fraudnetApi.summary().then(setApiSummary).catch(() => setApiError('Backend unavailable — showing safe demo data.'))
+  }, [])
   const visibleTransactions = useMemo(() => transactions.filter(t => `${t.id} ${t.customer} ${t.signal}`.toLowerCase().includes(query.toLowerCase())), [query])
 
   return <main className="app-shell">
@@ -41,7 +47,8 @@ export default function Page() {
       <header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)}><Menu size={20}/></button><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><b>{view}</b></div><div className="top-actions"><span className="status-pill"><span className="live-dot"/> Engine online</span><button className="icon-button"><Bell size={18}/><i/></button><div className="avatar small">AR</div></div></header>
       <div className="page-wrap">
         <div className="page-heading"><div><p className="eyebrow">THURSDAY, SEPTEMBER 3, 2026 <span>•</span> REAL-TIME MONITORING</p><h1>{view === 'Overview' ? 'Good morning, Alex.' : view}</h1><p className="subhead">{view === 'Overview' ? 'Here is what is happening across your payment network.' : view === 'Fraud Rings' ? 'Investigate coordinated networks before they scale.' : 'Explore signals and make confident risk decisions.'}</p></div><button className="primary-button" onClick={() => setView('Investigation')}><Sparkles size={16}/> Open investigator</button></div>
-        {view === 'Overview' && <Overview onSelect={(t) => { setSelected(t); setView('Investigation') }} />}
+        {apiError && <div className="notice" role="status">{apiError}</div>}
+        {view === 'Overview' && <Overview apiSummary={apiSummary} onSelect={(t) => { setSelected(t); setView('Investigation') }} />}
         {view === 'Transactions' && <Transactions query={query} setQuery={setQuery} visible={visibleTransactions} onSelect={(t) => { setSelected(t); setView('Investigation') }} />}
         {view === 'Fraud Rings' && <Rings onSelect={() => setView('Investigation')} />}
         {view === 'Investigation' && <Investigation transaction={selected} />}
@@ -52,8 +59,8 @@ export default function Page() {
   </main>
 }
 
-function Overview({ onSelect }: { onSelect: (t: typeof transactions[number]) => void }) { return <>
-  <div className="metrics-grid"><Metric label="TRANSACTIONS ANALYZED" value="48,291" sub="↑ 12.4% from last period" icon={CircleDollarSign}/><Metric label="FRAUD DETECTED" value="1,284" sub="2.66% of total volume" icon={AlertTriangle} accent/><Metric label="ACTIVE FRAUD RINGS" value="3" sub="1 critical • 2 high risk" icon={Network} accent/><Metric label="SUSPICIOUS VALUE" value="₹2.84Cr" sub="↑ 8.1% flagged value" icon={ArrowUpRight}/></div>
+function Overview({ onSelect, apiSummary }: { onSelect: (t: typeof transactions[number]) => void; apiSummary?: { total_transactions: number } | null }) { return <>
+  <div className="metrics-grid"><Metric label="TRANSACTIONS ANALYZED" value={apiSummary ? apiSummary.total_transactions.toLocaleString() : '48,291'} sub="↑ 12.4% from last period" icon={CircleDollarSign}/><Metric label="FRAUD DETECTED" value="1,284" sub="2.66% of total volume" icon={AlertTriangle} accent/><Metric label="ACTIVE FRAUD RINGS" value="3" sub="1 critical • 2 high risk" icon={Network} accent/><Metric label="SUSPICIOUS VALUE" value="₹2.84Cr" sub="↑ 8.1% flagged value" icon={ArrowUpRight}/></div>
   <div className="main-grid"><div className="panel chart-panel"><div className="panel-heading"><div><h2>Network risk activity</h2><p>Suspicious events detected over the last 14 days</p></div><button className="select-button">Last 14 days <ChevronRight size={14}/></button></div><div className="chart"><div className="chart-y"><span>120</span><span>80</span><span>40</span><span>0</span></div><div className="chart-area"><div className="grid-lines"/><svg viewBox="0 0 700 220" preserveAspectRatio="none" aria-label="Risk activity chart"><path d="M0,190 C40,180 40,155 85,165 S125,120 165,145 S210,170 250,118 S300,140 335,94 S380,126 415,88 S460,100 500,58 S550,88 585,44 S630,65 700,15" fill="none" stroke="currentColor" strokeWidth="3"/><path d="M0,190 C40,180 40,155 85,165 S125,120 165,145 S210,170 250,118 S300,140 335,94 S380,126 415,88 S460,100 500,58 S550,88 585,44 S630,65 700,15 V220 H0Z" fill="currentColor" opacity=".08"/></svg><div className="chart-x"><span>Aug 21</span><span>Aug 25</span><span>Aug 29</span><span>Sep 03</span></div></div></div></div><div className="panel rings-panel"><div className="panel-heading"><div><h2>Priority investigations</h2><p>Ranked by composite risk score</p></div><button className="text-button">View all <ArrowUpRight size={14}/></button></div><div className="ring-list"><RingRow id="FR-001" title="Device cluster / Mumbai" score="98" severity="Critical" meta="11 customers • 4 devices"/><RingRow id="FR-002" title="IP velocity / Bengaluru" score="84" severity="High" meta="7 customers • 2 IPs"/><RingRow id="FR-003" title="Instrument sharing / Delhi" score="72" severity="High" meta="5 customers • 1 instrument"/></div></div></div>
   <div className="panel table-panel"><div className="panel-heading"><div><h2>Recent high-risk activity</h2><p>Transactions requiring analyst attention</p></div><button className="text-button">View transactions <ArrowUpRight size={14}/></button></div><TransactionTable rows={transactions.slice(0, 4)} onSelect={onSelect}/></div>
 </> }

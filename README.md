@@ -12,8 +12,8 @@ pnpm dev
 The dashboard opens at `http://localhost:3000`. The optional FastAPI service can be started with Python 3.11+:
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r backend/requirements.txt
+python3 -m venv .venv && source .venv/bin/activate
+python -m pip install -r backend/requirements.txt
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
