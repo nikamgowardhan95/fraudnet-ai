@@ -4,8 +4,10 @@ import json, os
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from .database import Base, engine
+from sqlalchemy import text
+from .database import Base, engine, DATABASE_URL
 from .models.entities import *
+from .razorpay import RazorpayTestAdapter
 
 Base.metadata.create_all(bind=engine)
 app=FastAPI(title='FraudNet AI API',version='1.0.0',description='Defensive synthetic fraud ring investigation API')
@@ -14,7 +16,30 @@ TXNS=[{'transaction_id':'txn_8F29A1','customer_id':'CUST-1042','amount':18450,'s
 RINGS=[{'ring_id':'FR-001','risk_score':98,'severity':'CRITICAL','customers':11,'devices':4,'ips':2,'transactions':37,'suspicious_amount':428000,'evidence':TXNS[0]['signals']},{'ring_id':'FR-002','risk_score':84,'severity':'HIGH','customers':7,'devices':2,'ips':2,'transactions':19,'suspicious_amount':78420,'evidence':['7 customers share an IP','high transaction velocity']},{'ring_id':'FR-003','risk_score':72,'severity':'HIGH','customers':5,'devices':3,'ips':1,'transactions':12,'suspicious_amount':42890,'evidence':['5 customers share payment instrument','similar amounts']}]
 class ScoreRequest(BaseModel): amount:float=Field(gt=0); customer_id:str=Field(min_length=3,max_length=80); device_id:str|None=Field(default=None,max_length=80); ip_address:str|None=Field(default=None,max_length=80)
 @app.get('/health')
-def health(): return {'status':'ok','mode':'synthetic-demo','timestamp':datetime.utcnow().isoformat()}
+def health():
+    database_status = 'connected'
+    try:
+        with engine.connect() as connection:
+            connection.execute(text('SELECT 1'))
+    except Exception:
+        database_status = 'unavailable'
+    return {
+        'status': 'ok',
+        'mode': 'synthetic-demo',
+        'timestamp': datetime.utcnow().isoformat(),
+        'database': database_status,
+        'database_provider': 'neon-postgres' if DATABASE_URL.startswith('postgresql') else 'sqlite',
+        'razorpay': RazorpayTestAdapter().status(),
+        'investigator': 'local-deterministic',
+    }
+
+@app.get('/api/integrations/status')
+def integration_status():
+    return {
+        'database': {'provider': 'neon-postgres' if DATABASE_URL.startswith('postgresql') else 'sqlite', 'configured': bool(os.getenv('DATABASE_URL'))},
+        'razorpay': RazorpayTestAdapter().status(),
+        'investigator': {'provider': os.getenv('LLM_PROVIDER', 'local'), 'fallback_available': True},
+    }
 @app.get('/api/dashboard/summary')
 def summary(): return {'total_transactions':48291,'fraud_detected':1284,'high_risk_transactions':312,'fraud_rings':3,'suspicious_amount':28400000,'metrics':metrics()}
 @app.get('/api/transactions')
