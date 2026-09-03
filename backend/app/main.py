@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 import json, os
+<<<<<<< HEAD
 from fastapi import FastAPI, HTTPException, Query  # type: ignore[reportMissingImports]
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore[reportMissingImports]
 from pydantic import BaseModel, Field  # type: ignore[reportMissingImports]
@@ -9,6 +10,15 @@ from .database import Base, engine, DATABASE_URL
 from .models.entities import *
 from .razorpay import RazorpayTestAdapter
 from .model_service import predict_fraud
+=======
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from sqlalchemy import text
+from .database import Base, engine, DATABASE_URL
+from .models.entities import *
+from .razorpay import RazorpayTestAdapter
+>>>>>>> 5f44476436a827be21745e3306588455773cd8df
 
 Base.metadata.create_all(bind=engine)
 app=FastAPI(title='FraudNet AI API',version='1.0.0',description='Defensive synthetic fraud ring investigation API')
@@ -16,6 +26,7 @@ configured_origins = [origin.strip() for origin in os.getenv('CORS_ORIGINS', '')
 app.add_middleware(CORSMiddleware, allow_origins=configured_origins or ['*'], allow_methods=['*'], allow_headers=['*'])
 TXNS=[{'transaction_id':'txn_8F29A1','customer_id':'CUST-1042','amount':18450,'score':.98,'is_fraud':True,'ring_id':'FR-001','signals':['11 customers share device DEV-77A','6 transactions within 3 minutes','amount is 7.2x normal average']},{'transaction_id':'txn_8F28C7','customer_id':'CUST-1091','amount':17980,'score':.96,'is_fraud':True,'ring_id':'FR-001','signals':['shared payment instrument PI-204','new IP address','coordinated timing']},{'transaction_id':'txn_8F27B4','customer_id':'CUST-1138','amount':18200,'score':.94,'is_fraud':True,'ring_id':'FR-001','signals':['shared device DEV-77A','new device','similar transaction amount']},{'transaction_id':'txn_8F266D','customer_id':'CUST-0877','amount':8920,'score':.81,'is_fraud':True,'ring_id':'FR-002','signals':['velocity spike','shared IP address']}]
 RINGS=[{'ring_id':'FR-001','risk_score':98,'severity':'CRITICAL','customers':11,'devices':4,'ips':2,'transactions':37,'suspicious_amount':428000,'evidence':TXNS[0]['signals']},{'ring_id':'FR-002','risk_score':84,'severity':'HIGH','customers':7,'devices':2,'ips':2,'transactions':19,'suspicious_amount':78420,'evidence':['7 customers share an IP','high transaction velocity']},{'ring_id':'FR-003','risk_score':72,'severity':'HIGH','customers':5,'devices':3,'ips':1,'transactions':12,'suspicious_amount':42890,'evidence':['5 customers share payment instrument','similar amounts']}]
+<<<<<<< HEAD
 class ScoreRequest(BaseModel):
     amount: float = Field(gt=0)
 
@@ -57,6 +68,9 @@ class ScoreRequest(BaseModel):
     is_new_device: bool = False
 
     is_new_ip: bool = False
+=======
+class ScoreRequest(BaseModel): amount:float=Field(gt=0); customer_id:str=Field(min_length=3,max_length=80); device_id:str|None=Field(default=None,max_length=80); ip_address:str|None=Field(default=None,max_length=80)
+>>>>>>> 5f44476436a827be21745e3306588455773cd8df
 @app.get('/health')
 def health():
     database_status = 'connected'
@@ -92,6 +106,7 @@ def transaction(transaction_id:str):
  if not x: raise HTTPException(404,'Transaction not found')
  return x
 @app.post('/api/transactions/score')
+<<<<<<< HEAD
 def score(r: ScoreRequest):
 
     features = {
@@ -146,6 +161,15 @@ def score(r: ScoreRequest):
         "signals": signals,
         "recommended_action": action
     }
+=======
+def score(r:ScoreRequest):
+ s=.12; signals=[]
+ if r.amount>10000: s+=.48; signals.append('abnormal transaction amount')
+ if r.device_id: s+=.12; signals.append('device relationship requires graph review')
+ if r.ip_address: s+=.1; signals.append('IP relationship requires graph review')
+ return {'ml_probability':min(s,.99),'risk_score':round(min(s*100,99),1),'signals':signals,'recommended_action':'MANUAL_REVIEW' if s>.55 else 'MONITOR'}
+@app.get('/api/fraud-rings')
+>>>>>>> 5f44476436a827be21745e3306588455773cd8df
 def rings(): return {'items':RINGS,'total':3}
 @app.get('/api/fraud-rings/{ring_id}')
 def ring(ring_id:str):
